@@ -1,6 +1,7 @@
 import { quadToMatrix3d } from "./quad";
 import { DEVICE_SCREENS } from "./Devices";
 import { lerp, smooth, span, T } from "./time";
+import { TOUCH } from "./TouchImg";
 
 /** The devices still, in its own pixels, and its displays (normalised TL TR BR BL). */
 const SW = 3840;
@@ -62,6 +63,8 @@ const lastMask = ["", ""];
 const lastSharpOp = [-1, -1];
 let lastScreen: string[] = [];
 let sitePage: HTMLElement | null = null;
+/** phones and tablets: lighter on memory (iOS Safari) */
+let touch = false;
 let scrollMax = -1000;
 let lastScroll = "";
 let sharpWrap: HTMLElement | null = null;
@@ -98,6 +101,9 @@ export async function bindDevices(el: HTMLElement) {
   site = el.querySelector("[data-dv-site] .site");
   // the website on the laptop scrolls by a transform on its page (not a variable on the whole site)
   sitePage = site?.querySelector<HTMLElement>(".site-page") ?? null;
+  touch = window.matchMedia(TOUCH).matches;
+  // touch devices: out of the film the scene is not rendered at all (see updateDevices)
+  if (touch && root) root.style.display = "none";
   scrollMax = site ? parseFloat(getComputedStyle(site).getPropertyValue("--scroll-max")) || -1000 : -1000;
   lastScroll = "";
   reelItems = Array.from(el.querySelectorAll<HTMLElement>("[data-reel-item]"));
@@ -197,6 +203,9 @@ export function updateDevices(t: number, vw: number, vh: number) {
   const on = (t > T.svcIn[0] && t < T.careExit[1] + 0.02) || warm;
   if (on !== visible) {
     root.style.visibility = on ? "visible" : "hidden";
+    // Touch devices: hidden is not enough — iOS Safari keeps the layers of the still and the
+    // displays in memory; out of the render tree they are released.
+    if (touch) root.style.display = on ? "" : "none";
     // children set visible would show through a hidden parent: put them all out too
     if (!on) [...screens, ...reelItems, sharpWrap, care].forEach((el) => setOp(el, 0));
     visible = on;
@@ -293,9 +302,12 @@ export function updateDevices(t: number, vw: number, vh: number) {
   });
   setOp(care, tablet);
 
-  // The website on the laptop scrolls by itself.
+  // The website on the laptop scrolls by itself. Touch devices: a plain 2D move, so the tall page
+  // is painted into the display rather than kept as a layer of its own (two ~90 MB surfaces in
+  // iOS Safari at 3× — see .dv-site .site-page in chapters.css).
   if (sitePage) {
-    const y = `translate3d(0, ${(0.82 * smooth(span(t, T.webScroll[0], T.webScroll[1])) * scrollMax).toFixed(1)}px, 0)`;
+    const dy = (0.82 * smooth(span(t, T.webScroll[0], T.webScroll[1])) * scrollMax).toFixed(1);
+    const y = touch ? `translate(0, ${dy}px)` : `translate3d(0, ${dy}px, 0)`;
     if (y !== lastScroll) {
       sitePage.style.transform = y;
       lastScroll = y;
@@ -314,7 +326,7 @@ export function updateDevices(t: number, vw: number, vh: number) {
     setOp(el, v);
     if (v > 0) {
       const k = span(t, s0 - 0.1, s0 + d + 0.1);
-      (el.firstElementChild as HTMLElement).style.transform = `scale(${(1.08 - 0.08 * k).toFixed(4)})`;
+      el.querySelector("img")!.style.transform = `scale(${(1.08 - 0.08 * k).toFixed(4)})`;
     }
   });
   reelBars.forEach((el, i) => {

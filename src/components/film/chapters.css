@@ -149,6 +149,12 @@
   width: 1440px;
   height: 100%;
 }
+/* touch devices: the page scrolls inside the display's own layer (see devicesUpdate) */
+@media (hover: none) and (pointer: coarse) {
+  .dv-site .site-page {
+    will-change: auto;
+  }
+}
 /* website care on the tablet (1180 × 690): the dashboard laid out at 1400 × 819 */
 .dv-care {
   position: absolute;

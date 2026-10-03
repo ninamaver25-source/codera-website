@@ -1,4 +1,5 @@
-/* eslint-disable @next/next/no-img-element */
+import { TouchImg } from "../../film/TouchImg";
+
 /** ALBA — an architecture and interiors studio. Stone, oak, slow light. */
 export function Alba({ brand = "ALBA", email = "studio@alba.si" }: { brand?: string; email?: string }) {
   return (
@@ -16,7 +17,7 @@ export function Alba({ brand = "ALBA", email = "studio@alba.si" }: { brand?: str
       <div className="site-page">
         <section className="alba-hero">
           <div className="alba-hero-img">
-            <img src="/images/alba-villa.jpg" alt="" decoding="async" />
+            <TouchImg name="alba-villa" />
           </div>
           <div className="alba-hero-text">
             <span className="s-kicker">Architecture · Interiors</span>
@@ -36,7 +37,7 @@ export function Alba({ brand = "ALBA", email = "studio@alba.si" }: { brand?: str
           ].map(([img, t, s]) => (
             <figure key={img}>
               <div className="alba-tile">
-                <img src={`/images/${img}.jpg`} alt="" loading="lazy" decoding="async" />
+                <TouchImg name={img} loading="lazy" />
               </div>
               <figcaption>
                 <span>{t}</span>

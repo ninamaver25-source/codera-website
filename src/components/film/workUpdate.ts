@@ -2,6 +2,7 @@ import { quadToMatrix3d } from "./quad";
 import { DESK, GEN_COL } from "./Work";
 import { lerp, smooth, span, T } from "./time";
 import { warm } from "./devicesUpdate";
+import { TOUCH } from "./TouchImg";
 
 type Pt = [number, number];
 interface Cam {
@@ -25,6 +26,8 @@ let lastKey = "";
 let lastOp = -1;
 let lastFocus = -1;
 let lastFoot = -1;
+/** phones and tablets: the scene leaves the render tree while it is off (iOS Safari memory) */
+let touch = false;
 /** the generator takes clicks once the computer is in focus */
 let interactive = false;
 
@@ -42,7 +45,9 @@ export function bindWork(el: HTMLElement) {
   lastFoot = -1;
   interactive = false;
   if (screen) screen.style.pointerEvents = "none";
+  touch = window.matchMedia(TOUCH).matches;
   if (layer) layer.style.visibility = "hidden";
+  if (layer && touch) layer.style.display = "none";
   warm(layer);
   return fetch(`/film/${DESK.still}.json`)
     .then((r) => r.json())
@@ -146,6 +151,7 @@ export function updateWork(t: number, vw: number, vh: number, portrait: boolean,
   const on = t > a0;
   if (on !== visible) {
     setVis(layer, on);
+    if (touch) layer.style.display = on ? "" : "none";
     if (!on) {
       screen.style.pointerEvents = "none";
       interactive = false;

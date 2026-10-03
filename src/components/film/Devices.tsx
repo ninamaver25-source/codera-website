@@ -1,6 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 import type { CSSProperties } from "react";
 import { Alba } from "../home/sites/Alba";
+import { TouchImg } from "./TouchImg";
 
 /** Logical pixel size of each display in the devices still (aspect from the detected quads). */
 export const DEVICE_SCREENS = [
@@ -11,11 +12,11 @@ export const DEVICE_SCREENS = [
 ] as const;
 
 const REEL: [string, string, string][] = [
-  ["/images/aure-hero.jpg", "AURE", "Product · No. 04"],
-  ["/images/noir-silver.jpg", "AURE", "Campaign · Autumn"],
-  ["/images/luma-table.jpg", "NOIR", "Menu · Short film"],
-  ["/images/alba-pool.jpg", "FORMA", "Villa K · Stills"],
-  ["/images/noir-fur.jpg", "MOVEMENT", "Lookbook · AW 26"],
+  ["aure-hero", "AURE", "Product · No. 04"],
+  ["noir-silver", "AURE", "Campaign · Autumn"],
+  ["luma-table", "NOIR", "Menu · Short film"],
+  ["alba-pool", "FORMA", "Villa K · Stills"],
+  ["noir-fur", "MOVEMENT", "Lookbook · AW 26"],
 ];
 
 /**
@@ -52,9 +53,9 @@ export function Devices() {
       </div>
       <div className="dv-screen dv-phone" data-dvs="3" style={size(3)}>
         <div className="reel" data-reel>
-          {REEL.map(([src, brand, line], i) => (
-            <figure key={src} className="reel-item" data-reel-item={i}>
-              <img src={src} alt="" decoding="async" />
+          {REEL.map(([name, brand, line], i) => (
+            <figure key={name} className="reel-item" data-reel-item={i}>
+              <TouchImg name={name} />
               <figcaption>
                 <b>{brand}</b>
                 <span>{line}</span>

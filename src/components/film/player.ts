@@ -2,6 +2,7 @@ import { clamp01, lerp, smooth, span, T } from "./time";
 import { quadToMatrix3d } from "./quad";
 import { SCREEN } from "./screen/layout";
 import { svcPush } from "./devicesUpdate";
+import { TOUCH } from "./TouchImg";
 
 export interface Manifest {
   width: number;
@@ -32,6 +33,16 @@ interface Bridge {
 }
 
 type Pt = [number, number];
+
+
+/**
+ * Touch devices (phones, tablets) hold only this many frames decoded at once. Decoded, a frame is
+ * ~5.8 MB, and every frame drawn into the canvas is also kept by Safari's GPU process: all 292 at
+ * once is well over a gigabyte, and iOS Safari kills the page ("A problem repeatedly occurred").
+ */
+const LITE_CAP = 12;
+/** Frames decoded ahead of (and behind) the one on screen, so scrubbing finds them ready. */
+const LITE_AHEAD = 4;
 
 /** The office's darkest warm charcoal, behind everything. */
 const BG = "#15110e";
@@ -79,7 +90,19 @@ export interface LaptopBox {
 export class FramePlayer {
   private ctx: CanvasRenderingContext2D;
   private images: (HTMLImageElement | null)[] = [];
+  /** loaded: decoded (larger screens), or fetched and waiting compressed (touch devices) */
   private ready: Uint8Array = new Uint8Array(0);
+  /**
+   * Touch devices: the frames are kept compressed (the whole film is ~14 MB) and only a window of
+   * them around the one on screen is decoded, so memory stays flat however far the film is played.
+   */
+  private lite = typeof window !== "undefined" && window.matchMedia(TOUCH).matches;
+  private blobs: (Blob | null)[] = [];
+  private decoded = new Map<number, HTMLImageElement>();
+  private decoding = new Set<number>();
+  private wanted: number[] = [];
+  /** the frame on screen: eviction keeps the frames nearest to it */
+  private cur = 0;
   m: Manifest | null = null;
   onFrameLoaded: (() => void) | null = null;
   private w = 0;
@@ -106,6 +129,7 @@ export class FramePlayer {
       return out;
     });
     this.images = new Array(m.frames).fill(null);
+    this.blobs = new Array(m.frames).fill(null);
     this.ready = new Uint8Array(m.frames);
     this.preload();
   }
@@ -133,6 +157,20 @@ export class FramePlayer {
     const pump = () => {
       if (next >= order.length) return;
       const i = order[next++];
+      if (this.lite) {
+        fetch(m.src.replace("{i}", String(i)))
+          .then((r) => (r.ok ? r.blob() : null))
+          .then((b) => {
+            if (b) {
+              this.blobs[i] = b;
+              this.ready[i] = 1;
+              this.onFrameLoaded?.();
+            }
+          })
+          .catch(() => {})
+          .finally(pump);
+        return;
+      }
       const img = new Image();
       img.decoding = "async";
       img.onload = () => {
@@ -147,6 +185,68 @@ export class FramePlayer {
       img.src = m.src.replace("{i}", String(i));
     };
     for (let k = 0; k < 6; k++) pump();
+  }
+
+  /** Frame i, if it can be drawn now. */
+  private frame(i: number): HTMLImageElement | null {
+    return this.lite ? (this.decoded.get(i) ?? null) : this.ready[i] ? this.images[i] : null;
+  }
+
+  /** Touch devices: decode these frames next (most wanted first), dropping the farthest when full. */
+  private want(list: number[]) {
+    if (!this.lite) return;
+    this.wanted = list;
+    this.decodeNext();
+  }
+
+  private decodeNext() {
+    while (this.decoding.size < 2) {
+      const i = this.wanted.find((k) => this.blobs[k] && !this.decoded.has(k) && !this.decoding.has(k));
+      if (i === undefined) return;
+      this.decoding.add(i);
+      this.decodeBlob(this.blobs[i]!)
+        .then((f) => {
+          this.decoded.set(i, f);
+          this.evict();
+          this.onFrameLoaded?.();
+        })
+        .catch(() => (this.blobs[i] = null))
+        .finally(() => {
+          this.decoding.delete(i);
+          this.decodeNext();
+        });
+    }
+  }
+
+  /**
+   * An image of the blob, decoded off the main thread; its URL lives as long as the image is kept.
+   * (Not createImageBitmap: Safari keeps those in its GPU process well after close().)
+   */
+  private decodeBlob(b: Blob): Promise<HTMLImageElement> {
+    const url = URL.createObjectURL(b);
+    const img = new Image();
+    img.src = url;
+    return img.decode().then(
+      () => img,
+      (e) => {
+        URL.revokeObjectURL(url);
+        throw e;
+      },
+    );
+  }
+
+  private evict() {
+    if (this.decoded.size <= LITE_CAP) return;
+    const keep = new Set(this.wanted.slice(0, LITE_CAP));
+    const far = [...this.decoded.keys()].filter((k) => !keep.has(k)).sort((a, b) => Math.abs(b - this.cur) - Math.abs(a - this.cur));
+    for (const k of far) {
+      if (this.decoded.size <= LITE_CAP) break;
+      const f = this.decoded.get(k)!;
+      this.decoded.delete(k);
+      // free the pixels now (in the page and in Safari's GPU process), not at the next GC
+      URL.revokeObjectURL(f.src);
+      f.src = "";
+    }
   }
 
   get loadedFraction() {
@@ -358,9 +458,18 @@ export class FramePlayer {
       if (a >= 0.5) i0 += 1;
       a = 0;
     }
+    const bridge = this.bridgeAt(fi);
+    if (this.lite) {
+      // decode the frames on screen first, then those around them (ahead first)
+      const at = Math.min(m.frames - 1, i0);
+      const list = bridge ? [bridge.A, bridge.B] : [at, at + 1];
+      for (let d = 1; d <= LITE_AHEAD; d++) list.push(at + 1 + d, at - d);
+      this.cur = at;
+      this.want(list.filter((k) => k >= 0 && k < m.frames));
+    }
     const A = this.nearest(Math.min(m.frames - 1, i0));
     if (A < 0) return null;
-    const B = a > 0.02 && i0 + 1 < m.frames && this.ready[i0 + 1] ? i0 + 1 : -1;
+    const B = a > 0.02 && i0 + 1 < m.frames && this.frame(i0 + 1) ? i0 + 1 : -1;
     const { s, ox, oy, z0, cx, cy, portrait } = this.view(t);
     const breath = (x: number, y: number): Pt => [cx + (x - cx) * z0, cy + (y - cy) * z0];
 
@@ -395,9 +504,8 @@ export class FramePlayer {
     ctx.translate(-cx, -cy);
     // Phones: the frame is a band across the screen; above and below it the studio carries on —
     // its own edges, mirrored and out of focus — so the whole screen is always the room.
-    if (portrait) this.soft(A, this.images[A]!, ox, oy, m.width * s, m.height * s * CUT);
-    const bridge = this.bridgeAt(fi);
-    if (bridge && this.ready[bridge.A] && this.ready[bridge.B]) {
+    if (portrait) this.soft(A, this.frame(A)!, ox, oy, m.width * s, m.height * s * CUT);
+    if (bridge && this.frame(bridge.A) && this.frame(bridge.B)) {
       // A push-in across the hidden frames: both ends scaled about the subject and dissolved, the
       // nearer one inside a soft oval that opens out to the whole frame, so no edge ever shows.
       const { br } = bridge;
@@ -408,7 +516,7 @@ export class FramePlayer {
       const py = oy + lerp(br.pa[1], br.pb[1], v) * fh;
       const sa = Math.pow(br.k, v);
       const sb = Math.pow(br.k, v - 1);
-      ctx.drawImage(this.images[bridge.A]!, px - br.pa[0] * fw * sa, py - br.pa[1] * fh * sa, fw * sa, fh * sa);
+      ctx.drawImage(this.frame(bridge.A)!, px - br.pa[0] * fw * sa, py - br.pa[1] * fh * sa, fw * sa, fh * sa);
       const alpha = smooth(span(v, 0.15, 0.85));
       if (alpha > 0) {
         const off = this.offscreen();
@@ -419,7 +527,7 @@ export class FramePlayer {
         o.imageSmoothingQuality = "high";
         const bx = px - br.pb[0] * fw * sb;
         const by = py - br.pb[1] * fh * sb;
-        o.drawImage(this.images[bridge.B]!, bx, by, fw * sb, fh * sb);
+        o.drawImage(this.frame(bridge.B)!, bx, by, fw * sb, fh * sb);
         const open = lerp(0.62, 1.9, smooth(v));
         const cxB = bx + (fw * sb) / 2;
         const cyB = by + (fh * sb) / 2;
@@ -451,11 +559,11 @@ export class FramePlayer {
       o.clearRect(0, 0, off.width, off.height);
       o.setTransform(ctx.getTransform());
       o.imageSmoothingQuality = "high";
-      const imgA = this.images[A]!;
+      const imgA = this.frame(A)!;
       const nh = imgA.naturalHeight;
       o.drawImage(imgA, 0, 0, imgA.naturalWidth, nh * CUT, ox, oy, m.width * s, m.height * s * CUT);
       if (B >= 0) {
-        const imgB = this.images[B]!;
+        const imgB = this.frame(B)!;
         o.globalAlpha = a;
         o.drawImage(imgB, 0, 0, imgB.naturalWidth, imgB.naturalHeight * CUT, ox, oy, m.width * s, m.height * s * CUT);
         o.globalAlpha = 1;
@@ -480,15 +588,15 @@ export class FramePlayer {
       ctx.drawImage(off, 0, 0);
       ctx.restore();
     } else {
-      ctx.drawImage(this.images[A]!, ox, oy, m.width * s, m.height * s);
+      ctx.drawImage(this.frame(A)!, ox, oy, m.width * s, m.height * s);
       if (B >= 0) {
         ctx.globalAlpha = a;
-        ctx.drawImage(this.images[B]!, ox, oy, m.width * s, m.height * s);
+        ctx.drawImage(this.frame(B)!, ox, oy, m.width * s, m.height * s);
         ctx.globalAlpha = 1;
       }
     }
     if (soft > 0.004 && !portrait) {
-      const c = this.blurCopy(A, this.images[A]!);
+      const c = this.blurCopy(A, this.frame(A)!);
       ctx.globalAlpha = Math.min(1, soft);
       ctx.drawImage(c, ox, oy, m.width * s, m.height * s);
       ctx.globalAlpha = 1;
@@ -517,6 +625,7 @@ export class FramePlayer {
     const h = c.getContext("2d")!;
     h.imageSmoothingQuality = "high";
     h.drawImage(mid, 0, 0, c.width, c.height);
+    mid.width = mid.height = 0;
     if (this.blurred.size > 8) this.blurred.clear();
     this.blurred.set(i, c);
     return c;
@@ -541,6 +650,9 @@ export class FramePlayer {
     const h = c.getContext("2d")!;
     h.imageSmoothingQuality = "high";
     h.drawImage(mid, 0, 0, c.width, c.height);
+    // release the scratch canvas now: iOS Safari caps the total memory of all canvases
+    mid.width = mid.height = 0;
+    if (this.tiny.size > 48) this.tiny.clear();
     this.tiny.set(i, c);
     return c;
   }
@@ -610,11 +722,12 @@ export class FramePlayer {
     return this.off;
   }
 
+  /** The drawable frame nearest to i (on touch devices, while i itself is still decoding). */
   private nearest(i: number) {
-    if (this.ready[i]) return i;
+    if (this.frame(i)) return i;
     for (let d = 1; d < this.ready.length; d++) {
-      if (i - d >= 0 && this.ready[i - d]) return i - d;
-      if (i + d < this.ready.length && this.ready[i + d]) return i + d;
+      if (i - d >= 0 && this.frame(i - d)) return i - d;
+      if (i + d < this.ready.length && this.frame(i + d)) return i + d;
     }
     return -1;
   }
