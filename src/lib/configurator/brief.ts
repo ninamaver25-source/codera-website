@@ -286,6 +286,9 @@ export const QUICK_OPTIONS: { id: QuickOption; label: string }[] = [
   { id: "care", label: "Website care" },
 ];
 
+/** The options as they come from a browser: anything unknown is dropped. */
+export const sanitizeOptions = (v: unknown): QuickOption[] => (Array.isArray(v) ? QUICK_OPTIONS.filter((q) => v.includes(q.id)).map((q) => q.id) : []);
+
 /** The options a description implies (the AI ticks them). */
 export function optionsOf(p: Picks): QuickOption[] {
   const o = new Set<QuickOption>();

@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { QUICK_OPTIONS, describeBriefIn, estimateBrief, formatRangeIn, picksOf, type BriefEstimate, type Lang, type Range } from "../../lib/configurator";
 import { editText, emailOk, getEstimate, openRequest, priceStore, setContact, submit, toggleOption, usePrice } from "./priceStore";
 import { useLang, useT } from "./i18n";
+import { EMAIL } from "./contact";
 
 const reduced = () => typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -70,6 +71,19 @@ function Count({ range, lang }: { range: Range; lang: Lang }) {
 }
 
 const main = (e: BriefEstimate): Range => (e.total[1] > 0 ? e.total : (e.monthly ?? e.total));
+
+/** An error that offers the studio's address instead ("… or email us at {email}."), as a link. */
+function withEmail(text: string) {
+  const [before, after] = text.split("{email}");
+  if (after === undefined) return text;
+  return (
+    <>
+      {before}
+      <a href={`mailto:${EMAIL}`}>{EMAIL}</a>
+      {after}
+    </>
+  );
+}
 
 /**
  * AI PRICE GENERATOR, on the computer at the end of the film — one box: write what you want to
@@ -207,18 +221,15 @@ export function PriceGenerator() {
           </div>
           <input className="pg-hp" name="website" value={c.website} tabIndex={-1} autoComplete="off" aria-hidden onChange={(e) => setContact("website", e.target.value)} />
           <p className="pg-error" aria-live="polite">
-            {s.error ? (s.error === "rate" ? g.tooMany : g.failed) : s.tried && !(c.name.trim() && emailOk(c.email)) ? (!c.name.trim() ? g.addName : g.addEmail) : ""}
+            {s.error ? withEmail(s.error === "rate" ? g.tooMany : g.failed) : s.tried && !(c.name.trim() && emailOk(c.email)) ? (!c.name.trim() ? g.addName : g.addEmail) : ""}
           </p>
         </form>
       )}
       {sent && (
         <div className="pg-sent" aria-live="polite">
           <Orb />
-          <span className="pg-k">
-            {g.thanks}
-            {c.name.trim() ? `, ${c.name.trim().split(" ")[0]}` : ""}
-          </span>
-          <h3>{g.received}</h3>
+          <h3>{g.thanks}</h3>
+          <p>{g.received}</p>
         </div>
       )}
       <div className={`pg-foot${ready ? " is-ready" : ""}`}>

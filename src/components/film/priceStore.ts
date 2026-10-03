@@ -126,22 +126,31 @@ export function setContact(key: keyof GenState["contact"], v: string) {
 
 export const emailOk = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 
-/** SEND PROJECT REQUEST: the contact, the description, what was chosen (the server prices it again). */
+/**
+ * SEND PROJECT REQUEST: the contact, the description, the options ticked and what they price (the
+ * server prices it again and e-mails the studio). Sent only when the server confirms; on any
+ * failure (refused, offline, no answer within 25 s) the form stays filled in, with the error.
+ */
 export async function submit(lang: Lang) {
   const { contact: c, sending, text, ai, opts } = state;
   set({ tried: true });
   if (sending || !c.name.trim() || !emailOk(c.email)) return;
   set({ sending: true, error: null });
+  const abort = new AbortController();
+  const timer = setTimeout(() => abort.abort(), 25000);
   try {
     const res = await fetch("/api/inquiry", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: c.name, email: c.email, company: c.company, message: c.message, website: c.website, lang, brief: { description: text, ...picksOf(ai, opts) } }),
+      body: JSON.stringify({ name: c.name, email: c.email, company: c.company, message: c.message, website: c.website, lang, options: opts, brief: { description: text, ...picksOf(ai, opts) } }),
+      signal: abort.signal,
     });
-    set(res.ok ? { step: "sent" } : { error: res.status === 429 ? "rate" : "failed" });
+    const answer = (await res.json().catch(() => null)) as { ok?: boolean } | null;
+    set(res.ok && answer?.ok ? { step: "sent" } : { error: res.status === 429 ? "rate" : "failed" });
   } catch {
     set({ error: "failed" });
   } finally {
+    clearTimeout(timer);
     set({ sending: false });
   }
 }

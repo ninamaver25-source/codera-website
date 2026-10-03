@@ -24,8 +24,12 @@ Open http://localhost:3001. `?p=0.42` jumps to 42 % of the film (stills, reviews
 
 Copy `.env.example` to `.env.local` for the inquiry e-mail:
 
-* `RESEND_API_KEY` (+ `INQUIRY_TO`, `INQUIRY_FROM` on a domain verified in Resend) sends the
-  project e-mail. Without it, development prints the e-mail to the server log; production refuses.
+* `RESEND_API_KEY` sends every inquiry from the price generator to info@cod-era.com with Resend
+  (`INQUIRY_TO` changes the inbox; `INQUIRY_FROM` the sender, by default
+  `codERA Website <website@cod-era.com>` — it must be an address on the domain verified in
+  Resend). The key is read only on the server (`src/lib/configurator/email.ts`, marked
+  `server-only`). Without it, development prints the e-mail to the server log; production answers
+  with an error and the visitor is offered info@cod-era.com instead.
 * `ANTHROPIC_API_KEY` (+ `ANTHROPIC_MODEL`) lets Claude read the descriptions typed into the
   price generator. Without it a keyword reader (English and Slovenian) picks the services. Either
   way the AI only picks options; every price comes from the rules in `src/lib/configurator`

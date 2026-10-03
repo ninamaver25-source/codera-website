@@ -594,6 +594,11 @@
 .pg-error:empty {
   display: none;
 }
+.pg-error a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
 /* sent */
 .pg-sent {
   display: flex;
@@ -609,15 +614,20 @@
   font-size: 56px;
   margin-bottom: 6px;
 }
-.pg-sent .pg-k {
-  font-size: 15px;
-}
 .pg-sent h3 {
   margin: 0;
   font-family: var(--font-hero), var(--font-geist), sans-serif;
   font-size: 64px;
   font-weight: 700;
   letter-spacing: -0.01em;
+  text-transform: uppercase;
+}
+.pg-sent p {
+  max-width: 30em;
+  margin: 0;
+  font-size: 24px;
+  line-height: 1.45;
+  color: var(--pg-muted);
 }
 
 /* Portrait screens: the generator is a column in the middle of the display, which the camera
@@ -721,6 +731,9 @@
 }
 .film[data-portrait] .ws-screen .pg-sent h3 {
   font-size: 40px;
+}
+.film[data-portrait] .ws-screen .pg-sent p {
+  font-size: 16px;
 }
 
 @media (prefers-reduced-motion: reduce) {

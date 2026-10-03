@@ -1,6 +1,6 @@
 /** Contact details as shown in the reference; replace with the real ones when they change. */
 export const PHONE = { display: "+386 41 123 456", href: "tel:+38641123456" };
-export const EMAIL = "info@codera.si";
+export const EMAIL = "info@cod-era.com";
 
 export function Contact() {
   return (

@@ -1,13 +1,19 @@
 import { NextResponse } from "next/server";
-import { estimate, estimateBrief, isLang, langInfo, sanitize, sanitizeBrief } from "../../../lib/configurator";
+import { estimate, estimateBrief, isLang, langInfo, sanitize, sanitizeBrief, sanitizeOptions } from "../../../lib/configurator";
 import { composeBriefInquiry, composeInquiry, sendInquiry } from "../../../lib/configurator/email";
 import { allow, clientKey } from "../../../lib/rateLimit";
 
 const str = (v: unknown, max: number) => (typeof v === "string" ? v.replace(/\s+$/g, "").slice(0, max).trim() : "");
+/** One line (names go into the e-mail subject). */
+const line = (v: unknown, max: number) => str(v, max).replace(/\s+/g, " ");
+/** Text as written: line breaks kept, at most one empty line in a row. */
+const asWritten = (v: unknown, max: number) => (typeof v === "string" ? v.replace(/\r\n?/g, "\n").replace(/[ \t]+$/gm, "").replace(/\n{3,}/g, "\n\n").trim().slice(0, max) : "");
+const FAILED = "We couldn’t send your inquiry just now. Please try again, or email info@cod-era.com.";
 
 /**
  * POST the project and the contact details. The estimate is computed again here from the
- * configuration (never taken from the browser) and everything is e-mailed to the studio.
+ * configuration (never taken from the browser) and everything is e-mailed to the studio with
+ * Resend (src/lib/configurator/email.ts — the key stays on the server).
  */
 export async function POST(request: Request) {
   if (!allow(`inquiry:${clientKey(request)}`, 5, 30 * 60 * 1000)) {
@@ -23,9 +29,9 @@ export async function POST(request: Request) {
   if (str(body.website, 200)) return NextResponse.json({ ok: true });
 
   const contact = {
-    name: str(body.name, 120),
+    name: line(body.name, 120),
     email: str(body.email, 200),
-    company: str(body.company, 160),
+    company: line(body.company, 160),
     phone: str(body.phone, 60),
     message: str(body.message, 3000),
   };
@@ -38,9 +44,18 @@ export async function POST(request: Request) {
     const brief = sanitizeBrief(body.brief);
     const est = estimateBrief(brief);
     if (!est) return NextResponse.json({ error: "Describe your project or choose a service first." }, { status: 400 });
-    const language = isLang(body.lang) ? langInfo(body.lang).english : "English";
-    const sent = await sendInquiry(composeBriefInquiry({ contact, brief, estimate: est, language }));
-    if (!sent.ok) return NextResponse.json({ error: "We couldn't send your project just now. Please try again, or write to us directly." }, { status: 503 });
+    const sent = await sendInquiry(
+      composeBriefInquiry({
+        contact,
+        brief,
+        estimate: est,
+        description: asWritten((body.brief as { description?: unknown } | null)?.description, 1500),
+        options: sanitizeOptions(body.options),
+        language: isLang(body.lang) ? langInfo(body.lang).english : "English",
+      }),
+    );
+    // 500: the server is not configured (no RESEND_API_KEY); 502: Resend refused or could not be reached
+    if (!sent.ok) return NextResponse.json({ error: FAILED }, { status: sent.reason === "config" ? 500 : 502 });
     return NextResponse.json({ ok: true });
   }
 
@@ -57,6 +72,6 @@ export async function POST(request: Request) {
     source: body.source === "ai" ? "ai" : body.source === "rules" ? "rules" : "manual",
   });
   const sent = await sendInquiry(mail);
-  if (!sent.ok) return NextResponse.json({ error: "We couldn't send your project just now. Please try again, or write to us directly." }, { status: 503 });
+  if (!sent.ok) return NextResponse.json({ error: FAILED }, { status: sent.reason === "config" ? 500 : 502 });
   return NextResponse.json({ ok: true });
 }
