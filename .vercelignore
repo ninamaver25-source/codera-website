@@ -1,0 +1,13 @@
+# Only what the site needs goes online: no film sources, earlier directions, tooling or local config.
+film-src
+legacy
+docs
+scripts
+.claude
+.mcp.json
+.env*
+!.env.example
+.next
+node_modules
+tsconfig.tsbuildinfo
+*.log

@@ -1,0 +1,50 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #15110e;
+  --ink: #f2ebe1;
+  --font-display: var(--font-display-src), "Playfair Display", Georgia, serif;
+  --font-sans: var(--font-sans-src), Manrope, "Helvetica Neue", system-ui, sans-serif;
+  --font-mono: var(--font-mono-src), "Geist Mono", ui-monospace, Menlo, monospace;
+  /* The website mockups use these names. */
+  --font-serif: var(--font-display);
+  --font-didone: var(--font-display);
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-ink: var(--ink);
+  --font-display: var(--font-display);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+}
+
+html {
+  background: var(--bg);
+  color: var(--ink);
+  color-scheme: dark;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(242, 235, 225, 0.22) transparent;
+}
+
+body {
+  font-family: var(--font-geist), var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow-x: hidden;
+}
+
+::selection {
+  background: rgba(214, 160, 102, 0.32);
+}
+
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+.lenis.lenis-stopped {
+  overflow: hidden;
+}

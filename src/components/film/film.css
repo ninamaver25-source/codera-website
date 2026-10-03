@@ -1,0 +1,506 @@
+/* ================================================================== */
+/*  codERA — the film                                                    */
+/* ================================================================== */
+
+.film {
+  /* the office after hours: warm charcoal, ivory type, one amber */
+  --bg: #15110e;
+  --ink: #f2ebe1;
+  --muted: rgba(242, 235, 225, 0.6);
+  --line: rgba(242, 235, 225, 0.12);
+  --accent: #d6a066;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-geist), "Helvetica Neue", Arial, sans-serif;
+}
+
+/* Navigation: tiny, out of the way */
+.fnav {
+  position: fixed;
+  z-index: 20;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 76px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 clamp(20px, 3.2vw, 48px);
+  pointer-events: none;
+}
+.fnav a,
+.fnav span {
+  pointer-events: auto;
+}
+/* after the film, content scrolls under the menu: the page's own colour fades in behind it */
+.fnav::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 -28px;
+  z-index: -1;
+  background: linear-gradient(to bottom, var(--bg) 0, var(--bg) 62%, rgba(21, 17, 14, 0) 100%);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  pointer-events: none;
+}
+.film[data-page] .fnav::before {
+  opacity: 1;
+}
+/* a soft shade at the top of the frame keeps the menu readable over the bright window */
+.fnav::after {
+  content: "";
+  position: absolute;
+  inset: 0 0 -40px;
+  z-index: -2;
+  background: linear-gradient(to bottom, rgba(12, 9, 7, 0.5) 0, rgba(12, 9, 7, 0.22) 55%, rgba(12, 9, 7, 0) 100%);
+  pointer-events: none;
+}
+.fnav-brand {
+  font-family: var(--font-hero), var(--font-geist), sans-serif;
+  font-size: 20px;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  color: var(--ink);
+  text-decoration: none;
+  /* the opening frame has the bright window behind it */
+  text-shadow:
+    0 0 3px rgba(10, 8, 6, 0.5),
+    0 0 18px rgba(10, 8, 6, 0.85);
+}
+.fnav-brand b {
+  font-weight: 700;
+}
+.fnav-links {
+  display: flex;
+  align-items: center;
+  gap: 30px;
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+.fnav-links a {
+  color: var(--ink);
+  text-decoration: none;
+  opacity: 0.72;
+  transition: opacity 0.25s;
+}
+.fnav-links a:hover {
+  opacity: 1;
+}
+.fnav-links a.fnav-cta {
+  opacity: 1;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 18px;
+  border: 1px solid rgba(242, 235, 225, 0.38);
+  color: var(--ink);
+  transition:
+    background 0.3s,
+    color 0.3s,
+    border-color 0.3s;
+}
+.fnav-links a.fnav-cta:hover {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--bg);
+}
+/* the language menu */
+.flang {
+  position: relative;
+  pointer-events: auto;
+}
+.flang-btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 4px 0 6px;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-family: var(--font-mono-src), ui-monospace, monospace;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  opacity: 0.8;
+  cursor: pointer;
+  transition: opacity 0.25s;
+}
+.flang-btn:hover,
+.flang-btn[aria-expanded="true"] {
+  opacity: 1;
+}
+.flang-btn i {
+  width: 6px;
+  height: 6px;
+  box-sizing: border-box;
+  border: solid currentColor;
+  border-width: 0 1.3px 1.3px 0;
+  transform: translateY(-2px) rotate(45deg);
+  transition: transform 0.25s;
+}
+.flang-btn[aria-expanded="true"] i {
+  transform: translateY(1px) rotate(-135deg);
+}
+.flang-menu {
+  position: absolute;
+  right: -8px;
+  top: calc(100% + 10px);
+  z-index: 30;
+  min-width: 200px;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  border-radius: 16px;
+  border: 1px solid rgba(242, 235, 225, 0.14);
+  background: rgba(21, 17, 14, 0.95);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 24px 60px -24px rgba(0, 0, 0, 0.85);
+  animation: flang-in 0.2s ease both;
+}
+@keyframes flang-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+.flang-menu button {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: 13.5px;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.flang-menu button:hover {
+  background: rgba(242, 235, 225, 0.07);
+}
+.flang-menu b {
+  width: 24px;
+  font-family: var(--font-mono-src), ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+.flang-menu .on,
+.flang-menu .on b {
+  color: var(--accent);
+}
+.fnav-lang {
+  font-family: var(--font-mono-src), ui-monospace, monospace;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  opacity: 0.6;
+}
+
+/* The pinned stage */
+.film-track {
+  position: relative;
+  height: calc((var(--total) + 1) * var(--vh, 100vh));
+}
+.film-stage {
+  position: sticky;
+  top: 0;
+  height: var(--vh, 100vh);
+  overflow: hidden;
+  background: var(--bg);
+}
+.film-canvas {
+  position: absolute;
+  inset: 0;
+}
+.film-canvas canvas {
+  display: block;
+}
+.film-screen {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.film-veil {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  background: var(--bg);
+  pointer-events: none;
+  transition: opacity 0.9s ease;
+}
+.film[data-ready] .film-veil {
+  opacity: 0;
+}
+
+/* Typography */
+.ov {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+}
+.ov .w {
+  display: inline-block;
+  white-space: nowrap;
+}
+.ov .u {
+  display: inline-block;
+  will-change: opacity;
+}
+/* The opening: centred over the empty wall, the strongest thing in the room */
+.hero {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  /* centred across, and high enough to leave the chair and the desk below it free */
+  padding: 0 20px 40vh;
+  text-align: center;
+  transform-origin: 50% 50%;
+  text-shadow: 0 2px 30px rgba(8, 6, 4, 0.45);
+}
+.hero-title {
+  margin: 0;
+  font-family: var(--font-hero), var(--font-geist), "Helvetica Neue", Arial, sans-serif;
+  font-weight: 300;
+  /* --k: the longest line of the language still fits (set per language) */
+  font-size: calc(clamp(40px, min(5.8vw, 10.4vh), 124px) * var(--k, 1));
+  line-height: 1.04;
+  letter-spacing: 0.01em;
+  color: #f6f0e6;
+}
+.hero-title .hero-b {
+  font-weight: 700;
+  letter-spacing: -0.005em;
+}
+.hero-sub {
+  margin: 26px 0 0;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: rgba(242, 235, 225, 0.78);
+}
+.hero-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  height: 52px;
+  margin-top: 30px;
+  padding: 0 30px;
+  border: 1px solid rgba(242, 235, 225, 0.5);
+  background: rgba(21, 17, 14, 0.18);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  text-decoration: none;
+  text-shadow: none;
+  pointer-events: auto;
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  transition:
+    background 0.3s,
+    color 0.3s,
+    border-color 0.3s;
+}
+.hero-cta i {
+  font-style: normal;
+  letter-spacing: 0;
+  transition: transform 0.3s;
+}
+.hero-cta:hover {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--bg);
+}
+.hero-cta:hover i {
+  transform: translateX(4px);
+}
+.cue {
+  position: absolute;
+  left: 50%;
+  bottom: 30px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono-src), ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(242, 235, 225, 0.72);
+  text-decoration: none;
+  white-space: nowrap;
+  pointer-events: auto;
+  text-shadow: 0 1px 14px rgba(8, 6, 4, 0.8);
+}
+.cue i {
+  font-style: normal;
+  font-size: 14px;
+  color: var(--accent);
+}
+/* Steps sit in the dark band above the desk, left of the laptop */
+.step {
+  position: absolute;
+  left: clamp(24px, 5.2vw, 84px);
+  top: max(96px, 12vh);
+  width: min(330px, 22.5vw);
+  visibility: hidden;
+}
+.step .ln {
+  display: block;
+}
+/* 01 → 04 stand on the desk, left of the laptop: the title just above the desk's far edge, the
+   line under it on the desk itself (set from the desk's position) — the same for every step */
+.step-proc {
+  left: var(--proc-left, clamp(24px, 5.2vw, 84px));
+  top: var(--proc-desk, 48vh);
+  width: var(--proc-w, min(330px, 22.5vw));
+}
+.step-proc .step-head {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  padding-bottom: clamp(4px, 0.5vw, 8px);
+}
+.step-proc .step-title {
+  margin-bottom: 0;
+}
+.step-proc .step-sub {
+  padding-top: clamp(12px, 1.2vw, 18px);
+}
+/* phones (and any portrait screen): the words above the laptop, centred, every step ending on the
+   same line */
+.film[data-portrait] .step-proc {
+  left: 6vw;
+  right: 6vw;
+  top: auto;
+  bottom: var(--proc-bottom, 52vh);
+  width: auto;
+  text-align: center;
+}
+.film[data-portrait] .step-proc .step-head {
+  position: static;
+  padding-bottom: 0;
+}
+.film[data-portrait] .step-proc .step-title {
+  font-size: calc(min(11vw, 64px) * var(--kw, 1));
+  margin-bottom: 12px;
+}
+.film[data-portrait] .step-proc .step-n {
+  margin-bottom: 12px;
+}
+.film[data-portrait] .step-proc .step-sub {
+  padding-top: 0;
+  font-size: 15px;
+}
+/* a soft shadow keeps the words clear of the office behind them */
+.step,
+.more-wrap {
+  text-shadow:
+    0 0 1px rgba(8, 6, 4, 0.35),
+    0 1px 26px rgba(8, 6, 4, 0.85);
+}
+.step-n {
+  display: block;
+  margin-bottom: 18px;
+  font-family: var(--font-mono-src), ui-monospace, monospace;
+  font-size: 14px;
+  letter-spacing: 0.1em;
+  color: var(--accent);
+}
+.step-title {
+  margin: 0 0 22px;
+  font-family: var(--font-hero), var(--font-geist), sans-serif;
+  font-weight: 600;
+  font-size: calc(clamp(32px, 3.9vw, 64px) * var(--k, 1));
+  line-height: 0.98;
+  letter-spacing: -0.015em;
+}
+.step-sub {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.5;
+  color: rgba(242, 235, 225, 0.8);
+}
+
+@media (max-width: 760px) {
+  .fnav {
+    height: 64px;
+  }
+  .fnav-links {
+    gap: 12px;
+  }
+  .fnav-links a.fnav-cta {
+    height: 36px;
+    padding: 0 12px;
+    font-size: 10.5px;
+    letter-spacing: 0.12em;
+  }
+  .flang-btn {
+    padding: 0 2px 0 4px;
+  }
+  .flang-menu {
+    right: -6px;
+  }
+  .hero {
+    padding-bottom: 40vh;
+  }
+  .hero-title {
+    font-size: 9.6vw;
+    line-height: 1.08;
+  }
+  .hero-sub {
+    max-width: 340px;
+    margin-top: 22px;
+    font-size: 10.5px;
+    line-height: 1.9;
+    letter-spacing: 0.22em;
+  }
+  .hero-cta {
+    height: 48px;
+    margin-top: 26px;
+    padding: 0 24px;
+    font-size: 11px;
+  }
+  .step {
+    left: 6vw;
+    right: 6vw;
+    top: 12vh;
+    width: auto;
+    transform: none;
+    text-align: center;
+  }
+  .step-title {
+    font-size: calc(10.6vw * var(--kw, 1));
+    margin-bottom: 14px;
+  }
+  .step-sub {
+    font-size: 15px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .film-veil {
+    transition: none;
+  }
+}
